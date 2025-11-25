@@ -6,7 +6,7 @@
 # Variables
 RESOURCE_GROUP="rg-pegs-jokers"
 APP_NAME="pegs-jokers-app"
-LOCATION="East US"
+LOCATION="East US 2"
 SKU="Free"
 
 echo "Creating resource group..."
@@ -16,7 +16,7 @@ echo "Creating Static Web App..."
 az staticwebapp create \
   --name $APP_NAME \
   --resource-group $RESOURCE_GROUP \
-  --source https://github.com/yourusername/pegs-jokers \
+  --source https://github.com/buddyjoemama/pegs-jokers \
   --location "$LOCATION" \
   --branch main \
   --app-location "/" \

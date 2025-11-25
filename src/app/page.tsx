@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
-import TrackDemo from "@/components/board/TrackDemo";
+import GameLobby from "@/components/GameLobby";
 
-export default function Page() {
-  return <TrackDemo />;
+export default function Home() {
+  return <GameLobby />;
 }
