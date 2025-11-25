@@ -5,7 +5,7 @@ import { ref, set as firebaseSet, onValue, off, push, serverTimestamp, DatabaseR
 
 export type PlayerId = string;
 
-export type PegPos = number | "BASE" | "HOME";
+export type PegPos = number | "HOME" | "SAFE";
 
 export type Player = {
   id: PlayerId;
@@ -32,6 +32,11 @@ export type GameState = {
   moveSelectedPegTo: (slotIndex: number) => void;
   nextTurn: () => void;
   
+  // Debug functions
+  addPlayer: () => void;
+  removePlayer: () => void;
+  resetGame: () => void;
+  
   // Firebase integration
   gameId: string | null;
   isConnected: boolean;
@@ -55,14 +60,13 @@ export const useGame = create<GameState>()(
     let gameListener: (() => void) | null = null;
 
     const mkPlayer = (i: number, name: string, color: string): Player => {
-      const startIndex = i * slotsPerPlayer;
-      const homeEntryIndex = (startIndex + slotsPerPlayer - 1) % totalSlots;
-      const pegs = Array.from({ length: 4 }, (_, p) => ({
+      const startIndex = i * slotsPerPlayer + 1; // 1-based: lane starts at 1, 19, 37, 55...
+      const safeEntryIndex = startIndex + 3; // Safe starts at position 4 of lane (1-based)
+      const pegs = Array.from({ length: 5 }, (_, p) => ({
         pegId: `${name[0]}${p + 1}`,
-        pos: "BASE" as PegPos,
+        pos: "HOME" as PegPos, // All pegs start in HOME
       }));
-      pegs[0].pos = startIndex; // put one peg on the track
-      return { id: `P${i + 1}`, name, color, startIndex, homeEntryIndex, pegs };
+      return { id: `P${i + 1}`, name, color, startIndex, homeEntryIndex: safeEntryIndex, pegs };
     };
 
     const getInitialPlayers = () => [
@@ -133,6 +137,43 @@ export const useGame = create<GameState>()(
       nextTurn: () => {
         // TODO: implement turn rotation logic
         // This would also sync to Firebase when implemented
+      },
+      
+      // Debug functions
+      addPlayer: () => {
+        set((state) => {
+          const colors = ["#ef4444", "#3b82f6", "#10b981", "#a855f7", "#f59e0b", "#ec4899", "#8b5cf6", "#06b6d4"];
+          const names = ["Red", "Blue", "Green", "Purple", "Orange", "Pink", "Violet", "Cyan"];
+          const playerIndex = state.players.length;
+          if (playerIndex >= 8) return; // Max 8 players
+          
+          const newPlayer = mkPlayer(playerIndex, names[playerIndex], colors[playerIndex]);
+          state.players.push(newPlayer);
+          
+          // Recalculate total slots
+          state.totalSlots = state.players.length * state.rules.slotsPerPlayer;
+        });
+      },
+      
+      removePlayer: () => {
+        set((state) => {
+          if (state.players.length <= 2) return; // Minimum 2 players
+          state.players.pop();
+          state.totalSlots = state.players.length * state.rules.slotsPerPlayer;
+          state.selectedPeg = null;
+        });
+      },
+      
+      resetGame: () => {
+        set((state) => {
+          // Move all pegs back to HOME
+          state.players.forEach(player => {
+            player.pegs.forEach(peg => {
+              peg.pos = "HOME";
+            });
+          });
+          state.selectedPeg = null;
+        });
       },
       
       // Firebase methods

@@ -2,22 +2,26 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { useGame, Player } from "./useGame";
-import { slotAngle, slotPosition, polarToXY } from "./geometry";
+import { slotAngle, polarToXY, getTrackLayout } from "./geometry";
 
 const Track: React.FC<{ size?: number }> = ({ size = 720 }) => {
-  const { players, rules, totalSlots, selectedPeg, selectPeg, moveSelectedPegTo } = useGame();
+  const { players, rules, totalSlots, selectedPeg, selectPeg, moveSelectedPegTo, addPlayer, removePlayer, resetGame } = useGame();
 
   const cx = size / 2;
   const cy = size / 2;
   const outerR = size * 0.42;
   const slotR = size * 0.012;
 
-  const centers = Array.from({ length: totalSlots }, (_, i) =>
-    slotPosition(i, totalSlots, cx, cy, outerR)
-  );
+  const playerCount = players.length;
+  const slotSpacing = (outerR * 2 * Math.PI) / totalSlots; // Calculate spacing based on track circumference
+  const spacing = slotSpacing; // Use same spacing as track slots for consistency
+  
+  // Get complete track layout
+  const trackLayout = getTrackLayout(playerCount, cx, cy, outerR, spacing);
+  const { mainTrack, homes, safes } = trackLayout;
 
-  const Marker = ({ index, label, stroke = "#111", color = "#111" } : { index: number; label: string; stroke?: string; color?: string }) => {
-    const { x, y } = centers[index];
+  const Marker = ({ position, label, stroke = "#111", color = "#111" } : { position: {x: number, y: number}, label: string, stroke?: string, color?: string }) => {
+    const { x, y } = position;
     return (
       <g>
         <circle cx={x} cy={y} r={slotR * 1.4} fill="none" stroke={stroke} strokeWidth={2} />
@@ -27,12 +31,25 @@ const Track: React.FC<{ size?: number }> = ({ size = 720 }) => {
   };
 
   const pegsOnSlot = new Map<number, { player: Player; pegId: string }[]>();
+  const pegsInHome = new Map<number, { player: Player; pegId: string }[]>();
+  const pegsInSafe = new Map<number, { player: Player; pegId: string }[]>();
+  
   players.forEach((pl) =>
     pl.pegs.forEach((pg) => {
       if (typeof pg.pos === "number") {
         const arr = pegsOnSlot.get(pg.pos) ?? [];
         arr.push({ player: pl, pegId: pg.pegId });
         pegsOnSlot.set(pg.pos, arr);
+      } else if (pg.pos === "HOME") {
+        const playerIdx = players.indexOf(pl);
+        const arr = pegsInHome.get(playerIdx) ?? [];
+        arr.push({ player: pl, pegId: pg.pegId });
+        pegsInHome.set(playerIdx, arr);
+      } else if (pg.pos === "SAFE") {
+        const playerIdx = players.indexOf(pl);
+        const arr = pegsInSafe.get(playerIdx) ?? [];
+        arr.push({ player: pl, pegId: pg.pegId });
+        pegsInSafe.set(playerIdx, arr);
       }
     })
   );
@@ -48,7 +65,17 @@ const Track: React.FC<{ size?: number }> = ({ size = 720 }) => {
         </defs>
         <rect x={0} y={0} width={size} height={size} fill="url(#felt)" rx={24} />
 
-        <circle cx={cx} cy={cy} r={outerR} fill="none" stroke="#334155" strokeWidth={8} />
+        {/* Polygon outline */}
+        <polygon
+          points={Array.from({ length: playerCount }, (_, i) => {
+            const a = slotAngle(i, playerCount);
+            const { x, y } = polarToXY(cx, cy, outerR, a);
+            return `${x},${y}`;
+          }).join(" ")}
+          fill="none"
+          stroke="#334155"
+          strokeWidth={8}
+        />
 
         {players.map((pl) => {
           const start = pl.startIndex;
@@ -75,30 +102,99 @@ const Track: React.FC<{ size?: number }> = ({ size = 720 }) => {
           );
         })}
 
-        {centers.map(({ x, y }, i) => (
-          <g key={i} className="cursor-pointer" onClick={() => moveSelectedPegTo(i)}>
-            <circle cx={x} cy={y} r={slotR} fill="#0ea5e9" opacity={0.15} />
-            <circle cx={x} cy={y} r={slotR * 0.5} fill="#94a3b8" />
-            <text x={x} y={y + slotR * 2.4} fontSize={9} textAnchor="middle" fill="#64748b">{i}</text>
+        {/* Main track slots */}
+        {mainTrack.map((slot) => (
+          <g key={`slot-${slot.index}`} className="cursor-pointer" onClick={() => moveSelectedPegTo(slot.index)}>
+            <circle cx={slot.x} cy={slot.y} r={slotR} fill="#0ea5e9" opacity={0.15} />
+            <circle cx={slot.x} cy={slot.y} r={slotR * 0.5} fill="#94a3b8" />
+            <text x={slot.x} y={slot.y + slotR * 2.4} fontSize={9} textAnchor="middle" fill="#64748b" opacity={0}>{slot.index}</text>
           </g>
         ))}
 
-        {players.map((pl) => (
-          <g key={`markers-${pl.id}`}>
-            <Marker index={pl.startIndex} label={`${pl.name} Start`} color={pl.color} stroke={pl.color} />
-            <Marker index={pl.homeEntryIndex} label={`${pl.name} Home`} color={pl.color} stroke={pl.color} />
-          </g>
-        ))}
+        {/* HOME areas (cross shape) */}
+        {homes.map((home, idx) => {
+          const pl = players[idx];
+          return (
+            <g key={`home-${idx}`}>
+              {home.positions.map((pos, posIdx) => (
+                <g key={`home-${idx}-${posIdx}`}>
+                  <circle
+                    cx={pos.x}
+                    cy={pos.y}
+                    r={slotR}
+                    fill={pl.color}
+                    opacity={0.15}
+                    className="cursor-pointer"
+                    onClick={() => selectPeg(pl.id, pl.pegs[posIdx]?.pegId)}
+                  />
+                  <circle
+                    cx={pos.x}
+                    cy={pos.y}
+                    r={slotR * 0.5}
+                    fill={pl.color}
+                    fillOpacity={0.6}
+                    stroke={pl.color}
+                    strokeWidth={1}
+                    className="cursor-pointer"
+                    onClick={() => selectPeg(pl.id, pl.pegs[posIdx]?.pegId)}
+                  />
+                </g>
+              ))}
+            </g>
+          );
+        })}
 
+        {/* SAFE areas (L shape) */}
+        {safes.map((safe, idx) => {
+          const pl = players[idx];
+          return (
+            <g key={`safe-${idx}`}>
+              {safe.positions.map((pos, posIdx) => (
+                <g key={`safe-${idx}-${posIdx}`}>
+                  <circle
+                    cx={pos.x}
+                    cy={pos.y}
+                    r={slotR}
+                    fill="#10b981"
+                    opacity={0.15}
+                  />
+                  <circle
+                    cx={pos.x}
+                    cy={pos.y}
+                    r={slotR * 0.5}
+                    fill="#10b981"
+                    fillOpacity={0.6}
+                    stroke={pl.color}
+                    strokeWidth={1}
+                  />
+                </g>
+              ))}
+            </g>
+          );
+        })}
+
+        {/* Player markers */}
+        {players.map((pl) => {
+          const startSlot = mainTrack.find(s => s.index === pl.startIndex);
+          const safeSlot = mainTrack.find(s => s.index === pl.homeEntryIndex);
+          return (
+            <g key={`markers-${pl.id}`}>
+              {/* Markers removed for cleaner appearance */}
+            </g>
+          );
+        })}
+
+        {/* Pegs on main track */}
         {Array.from(pegsOnSlot.entries()).map(([slot, items]) => {
-          const { x, y } = centers[slot];
+          const slotPos = mainTrack.find(s => s.index === slot);
+          if (!slotPos) return null;
           return (
             <g key={`slot-pegs-${slot}`}>
               {items.map((it, idx) => (
                 <motion.circle
                   key={`${slot}-${it.pegId}`}
-                  cx={x + (idx - (items.length - 1) / 2) * (slotR * 0.8)}
-                  cy={y - slotR * 1.6}
+                  cx={slotPos.x}
+                  cy={slotPos.y}
                   r={slotR * 0.8}
                   fill={it.player.color}
                   stroke="#0b1020"
@@ -106,27 +202,64 @@ const Track: React.FC<{ size?: number }> = ({ size = 720 }) => {
                   initial={{ scale: 0.8, opacity: 0.6 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ type: "spring", stiffness: 220, damping: 20 }}
+                  className="cursor-pointer"
+                  onClick={() => selectPeg(it.player.id, it.pegId)}
                 />
               ))}
             </g>
           );
         })}
 
-        {players.map((pl) => {
-          const base = pl.pegs.filter((p) => p.pos === "BASE");
-          if (base.length === 0) return null;
-          const midIndex = (pl.startIndex + rules.slotsPerPlayer / 2) % totalSlots;
-          const a = slotAngle(midIndex, totalSlots);
-          const { x, y } = polarToXY(cx, cy, outerR + 70, a);
+        {/* Pegs in HOME */}
+        {Array.from(pegsInHome.entries()).map(([playerIdx, items]) => {
+          const homePositions = homes[playerIdx].positions;
           return (
-            <g key={`base-${pl.id}`}>
-              <text x={x} y={y - 28} fontSize={12} textAnchor="middle" fill={pl.color}>{pl.name} Base</text>
-              {base.map((pg, bi) => (
-                <g key={pg.pegId} onClick={() => selectPeg(pl.id, pg.pegId)} className="cursor-pointer">
-                  <circle cx={x + bi * 18 - (base.length - 1) * 9} cy={y} r={slotR * 0.9} fill={pl.color} stroke="#0b1020" strokeWidth={2} />
-                  <text x={x + bi * 18 - (base.length - 1) * 9} y={y + 4} fontSize={9} textAnchor="middle" fill="#111">{pg.pegId}</text>
-                </g>
-              ))}
+            <g key={`home-pegs-${playerIdx}`}>
+              {items.map((it, idx) => {
+                const pos = homePositions[idx % homePositions.length];
+                return (
+                  <motion.circle
+                    key={`home-${it.pegId}`}
+                    cx={pos.x}
+                    cy={pos.y}
+                    r={slotR * 0.111}
+                    fill={it.player.color}
+                    stroke={it.player.color}
+                    strokeWidth={2}
+                    initial={{ scale: 0.8 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: "spring", stiffness: 220, damping: 20 }}
+                    className="cursor-pointer"
+                    onClick={() => selectPeg(it.player.id, it.pegId)}
+                  />
+                );
+              })}
+            </g>
+          );
+        })}
+
+        {/* Pegs in SAFE */}
+        {Array.from(pegsInSafe.entries()).map(([playerIdx, items]) => {
+          const safePositions = safes[playerIdx].positions;
+          return (
+            <g key={`safe-pegs-${playerIdx}`}>
+              {items.map((it, idx) => {
+                const pos = safePositions[idx % safePositions.length];
+                return (
+                  <motion.circle
+                    key={`safe-${it.pegId}`}
+                    cx={pos.x}
+                    cy={pos.y}
+                    r={slotR * 0.8}
+                    fill={it.player.color}
+                    stroke="#0b1020"
+                    strokeWidth={2}
+                    initial={{ scale: 0.8 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: "spring", stiffness: 220, damping: 20 }}
+                  />
+                );
+              })}
             </g>
           );
         })}
@@ -137,6 +270,27 @@ const Track: React.FC<{ size?: number }> = ({ size = 720 }) => {
           </text>
         )}
       </svg>
+
+      <div className="mt-4 flex gap-4 justify-center">
+        <button
+          onClick={addPlayer}
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+        >
+          Add Player
+        </button>
+        <button
+          onClick={removePlayer}
+          className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium transition-colors"
+        >
+          Remove Player
+        </button>
+        <button
+          onClick={resetGame}
+          className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+        >
+          Reset Game
+        </button>
+      </div>
 
       <div className="mt-4 flex gap-8 flex-wrap justify-center">
         {players.map((pl) => (
