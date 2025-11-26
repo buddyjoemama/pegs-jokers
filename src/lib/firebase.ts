@@ -1,6 +1,6 @@
-import { initializeApp } from 'firebase/app';
-import { getDatabase } from 'firebase/database';
-import { getAuth } from 'firebase/auth';
+import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
+import { getDatabase, Database } from 'firebase/database';
+import { getAuth, Auth } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -12,19 +12,30 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 };
 
-// Validate critical config values
-if (!firebaseConfig.projectId) {
-  console.error('Firebase configuration error: Missing projectId');
-  console.error('Available env vars:', Object.keys(process.env).filter(key => key.startsWith('NEXT_PUBLIC_')));
+// Initialize Firebase only if not already initialized and config is valid
+let app: FirebaseApp;
+let database: Database | null = null;
+let auth: Auth | null = null;
+
+// Only initialize if we have a valid config (browser environment with env vars)
+if (typeof window !== 'undefined' && firebaseConfig.projectId) {
+  if (!getApps().length) {
+    app = initializeApp(firebaseConfig);
+  } else {
+    app = getApp();
+  }
+  
+  // Initialize Realtime Database with explicit URL
+  database = getDatabase(app, firebaseConfig.databaseURL);
+  
+  // Initialize Firebase Authentication
+  auth = getAuth(app);
+} else if (typeof window === 'undefined') {
+  // Server-side rendering / build time - don't initialize
+  console.log('Firebase initialization skipped during build/SSR');
+} else {
+  console.error('Firebase configuration error: Missing projectId or other config');
 }
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-
-// Initialize Realtime Database with explicit URL
-export const database = getDatabase(app, firebaseConfig.databaseURL);
-
-// Initialize Firebase Authentication and get a reference to the service
-export const auth = getAuth(app);
-
-export default app;
+export { database, auth };
+export default app!;
