@@ -3,7 +3,6 @@ import { getDatabase } from 'firebase/database';
 import { getAuth } from 'firebase/auth';
 
 const firebaseConfig = {
-  // You'll need to replace these with your actual Firebase config
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
   databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
@@ -13,11 +12,17 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 };
 
+// Validate critical config values
+if (!firebaseConfig.projectId) {
+  console.error('Firebase configuration error: Missing projectId');
+  console.error('Available env vars:', Object.keys(process.env).filter(key => key.startsWith('NEXT_PUBLIC_')));
+}
+
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Initialize Realtime Database and get a reference to the service
-export const database = getDatabase(app);
+// Initialize Realtime Database with explicit URL
+export const database = getDatabase(app, firebaseConfig.databaseURL);
 
 // Initialize Firebase Authentication and get a reference to the service
 export const auth = getAuth(app);
