@@ -28,6 +28,10 @@ const GameLobby: React.FC = () => {
     setIsCreating(true);
     try {
       const newGameId = await createGame();
+      if (!newGameId) {
+        alert('Failed to create game. Firebase may not be initialized.');
+        return;
+      }
       console.log(`🎮 Created game: ${newGameId}`);
       // Copy to clipboard automatically
       await navigator.clipboard.writeText(newGameId);
