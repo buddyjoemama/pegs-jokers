@@ -43,7 +43,7 @@ export type GameState = {
   connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error';
   
   // Firebase methods
-  createGame: () => Promise<string>;
+  createGame: () => Promise<string | null>;
   joinGame: (gameId: string) => Promise<void>;
   leaveGame: () => void;
   syncToFirebase: () => Promise<void>;
@@ -112,7 +112,7 @@ export const useGame = create<GameState>()(
         });
         
         // Sync to Firebase
-        if (state.gameId && gameRef) {
+        if (state.gameId && gameRef && database) {
           try {
             const updatedState = get();
             await firebaseSet(ref(database, `games/${state.gameId}/players`), updatedState.players);
@@ -178,6 +178,11 @@ export const useGame = create<GameState>()(
       
       // Firebase methods
       createGame: async () => {
+        if (!database) {
+          console.error('Firebase database not initialized');
+          return null;
+        }
+        
         try {
           set((state) => {
             state.connectionStatus = 'connecting';
@@ -218,6 +223,11 @@ export const useGame = create<GameState>()(
       },
       
       joinGame: async (gameId: string) => {
+        if (!database) {
+          console.error('Firebase database not initialized');
+          return;
+        }
+        
         try {
           set((state) => {
             state.connectionStatus = 'connecting';
