@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
-import { database } from "@/lib/firebase";
-import { ref, set as firebaseSet, onValue, off, push, serverTimestamp, DatabaseReference } from "firebase/database";
+import { database, auth } from "@/lib/firebase";
+import { ref, set as firebaseSet, onValue, off, push, serverTimestamp, DatabaseReference, get as firebaseGet, update } from "firebase/database";
 
 export type PlayerId = string;
 
@@ -204,6 +204,7 @@ export const useGame = create<GameState>()(
             createdAt: serverTimestamp(),
             lastUpdated: serverTimestamp(),
             status: 'waiting', // waiting, playing, finished
+            participants: auth?.currentUser ? { [auth.currentUser.uid]: true } : {},
           };
           
           await firebaseSet(newGameRef, initialGameState);
@@ -233,7 +234,7 @@ export const useGame = create<GameState>()(
       joinGame: async (gameId: string) => {
         if (!database) {
           console.error('Firebase database not initialized');
-          return;
+          throw new Error('Firebase database not initialized');
         }
         
         try {
@@ -242,6 +243,16 @@ export const useGame = create<GameState>()(
           });
           
           gameRef = ref(database, `games/${gameId}`);
+          
+          // Check if game exists first
+          const snapshot = await firebaseGet(gameRef);
+          if (!snapshot.exists()) {
+            set((state) => {
+              state.connectionStatus = 'disconnected';
+              state.isConnected = false;
+            });
+            throw new Error(`Game '${gameId}' does not exist`);
+          }
           
           // Set up real-time listener for game state changes
           gameListener = onValue(gameRef, (snapshot) => {
@@ -267,6 +278,12 @@ export const useGame = create<GameState>()(
           // Store game ID in localStorage
           if (typeof window !== 'undefined') {
             localStorage.setItem(GAME_ID_KEY, gameId);
+          }
+          
+          // Add current user to participants list
+          if (auth?.currentUser) {
+            const participantsRef = ref(database, `games/${gameId}/participants/${auth.currentUser.uid}`);
+            await firebaseSet(participantsRef, true);
           }
           
           set((state) => {

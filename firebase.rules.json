@@ -1,6 +1,16 @@
 {
   "rules": {
-    ".read": "auth != null",
-    ".write": "auth != null"
+    "games": {
+      "$gameId": {
+        ".read": true,
+        ".write": "auth != null && (!data.exists() || root.child('games').child($gameId).child('participants').child(auth.uid).exists())"
+      }
+    },
+    "users": {
+      "$userId": {
+        ".read": "auth != null && auth.uid == $userId",
+        ".write": "auth != null && auth.uid == $userId"
+      }
+    }
   }
 }

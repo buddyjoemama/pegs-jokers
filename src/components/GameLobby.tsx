@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react';
 import { useGame } from './board/useGame';
 import TrackDemo from './board/TrackDemo';
 import AuthDialog from './AuthDialog';
-import { auth } from '@/lib/firebase';
+import { auth, database } from '@/lib/firebase';
 import { onAuthStateChanged, signOut, signInAnonymously, User } from 'firebase/auth';
+import { ref, get } from 'firebase/database';
 import {
   Box,
   Container,
@@ -43,6 +44,7 @@ const GameLobby: React.FC = () => {
   const [inputGameId, setInputGameId] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Monitor auth state
   useEffect(() => {
@@ -71,9 +73,11 @@ const GameLobby: React.FC = () => {
       joinGame(storedGameId)
         .then(() => {
           console.log('✅ Auto-rejoin successful');
+          setErrorMessage(null);
         })
         .catch((error) => {
           console.error('❌ Auto-rejoin failed:', error);
+          setErrorMessage(error.message || 'Failed to rejoin game');
           // Clear invalid game ID from localStorage
           localStorage.removeItem('pegs-jokers-game-id');
         })
@@ -121,6 +125,18 @@ const GameLobby: React.FC = () => {
 
     setIsJoining(true);
     try {
+      // Check if game exists before creating anonymous user
+      if (!database) {
+        throw new Error('Firebase database not initialized');
+      }
+      
+      const gameRef = ref(database, `games/${inputGameId.trim()}`);
+      const snapshot = await get(gameRef);
+      
+      if (!snapshot.exists()) {
+        throw new Error(`Game '${inputGameId.trim()}' does not exist`);
+      }
+
       // Sign in anonymously if not already authenticated
       if (!user) {
         if (!auth) {
@@ -135,9 +151,10 @@ const GameLobby: React.FC = () => {
 
       await joinGame(inputGameId.trim());
       console.log(`✅ Joined game: ${inputGameId}`);
-    } catch (error) {
+      setErrorMessage(null);
+    } catch (error: any) {
       console.error('Failed to join game:', error);
-      alert('Failed to join game. Check the Game ID and try again.');
+      setErrorMessage(error.message || 'Failed to join game. Check the Game ID and try again.');
     } finally {
       setIsJoining(false);
     }
@@ -196,10 +213,10 @@ const GameLobby: React.FC = () => {
               
               {user && (
                 <Chip
-                  label={user.displayName || user.email}
+                  label={user.isAnonymous ? 'Guest' : (user.displayName || user.email)}
                   avatar={
                     <Box className={styles.avatar}>
-                      {(user.displayName || user.email || 'U')[0].toUpperCase()}
+                      {user.isAnonymous ? '?' : (user.displayName || user.email || 'U')[0].toUpperCase()}
                     </Box>
                   }
                   className={styles.userChip}
@@ -241,10 +258,10 @@ const GameLobby: React.FC = () => {
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
                   <Box>
                     <Typography variant="subtitle2" className={styles.userSubtitle}>
-                      Signed in as
+                      {user.isAnonymous ? 'Playing as Guest' : 'Signed in as'}
                     </Typography>
                     <Typography variant="h6">
-                      {user.displayName || user.email}
+                      {user.isAnonymous ? 'Anonymous User' : (user.displayName || user.email)}
                     </Typography>
                   </Box>
                   <IconButton onClick={handleSignOut} color="error" size="small">
@@ -306,7 +323,10 @@ const GameLobby: React.FC = () => {
             label="Game ID"
             placeholder="Enter Game ID (e.g., -O7XnF8...)"
             value={inputGameId}
-            onChange={(e) => setInputGameId(e.target.value)}
+            onChange={(e) => {
+              setInputGameId(e.target.value);
+              setErrorMessage(null);
+            }}
             disabled={connectionStatus === 'connecting'}
             onKeyDown={(e) => e.key === 'Enter' && inputGameId.trim() && handleJoinGame()}
             className={styles.gameIdInput}
@@ -327,22 +347,31 @@ const GameLobby: React.FC = () => {
             Enter the Game ID shared by your friend
           </Typography>
 
-          {/* Connection status */}
-          {connectionStatus !== 'disconnected' && (
+          {/* Connection status or error */}
+          {(connectionStatus !== 'disconnected' || errorMessage) && (
             <Card className={styles.connectionCard}>
               <CardContent>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <Box
-                    className={`${styles.connectionIndicator} ${
-                      connectionStatus === 'connected' ? styles.connected :
-                      connectionStatus === 'connecting' ? styles.connecting :
-                      styles.disconnected
-                    }`}
-                  />
-                  <Typography variant="body2">
-                    {connectionStatus === 'connecting' ? 'Connecting to Firebase...' : connectionStatus}
-                  </Typography>
-                </Stack>
+                {errorMessage ? (
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Box className={`${styles.connectionIndicator} ${styles.disconnected}`} />
+                    <Typography variant="body2" color="error">
+                      {errorMessage}
+                    </Typography>
+                  </Stack>
+                ) : (
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Box
+                      className={`${styles.connectionIndicator} ${
+                        connectionStatus === 'connected' ? styles.connected :
+                        connectionStatus === 'connecting' ? styles.connecting :
+                        styles.disconnected
+                      }`}
+                    />
+                    <Typography variant="body2">
+                      {connectionStatus === 'connecting' ? 'Connecting to Firebase...' : connectionStatus}
+                    </Typography>
+                  </Stack>
+                )}
               </CardContent>
             </Card>
           )}
