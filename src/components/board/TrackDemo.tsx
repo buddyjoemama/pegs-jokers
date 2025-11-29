@@ -180,6 +180,57 @@ const Track: React.FC<{ size?: number }> = ({ size = 720 }) => {
           );
         })}
 
+        {/* Player name labels parallel to n-gon sides */}
+        {players.map((pl, idx) => {
+          // Get the two corners of this player's side
+          const corner1Angle = slotAngle(idx, playerCount);
+          const corner2Angle = slotAngle(idx + 1, playerCount);
+          
+          const corner1 = polarToXY(cx, cy, outerR, corner1Angle);
+          const corner2 = polarToXY(cx, cy, outerR, corner2Angle);
+          
+          // Calculate midpoint of the edge
+          const midPoint = {
+            x: (corner1.x + corner2.x) / 2,
+            y: (corner1.y + corner2.y) / 2,
+          };
+          
+          // Calculate angle of the edge (from corner1 to corner2)
+          const edgeAngleRad = Math.atan2(corner2.y - corner1.y, corner2.x - corner1.x);
+          const edgeAngleDeg = (edgeAngleRad * 180) / Math.PI;
+          
+          // Adjust text rotation to be readable (not upside down)
+          let textRotation = edgeAngleDeg;
+          if (textRotation > 90 && textRotation < 270) {
+            textRotation = textRotation - 180;
+          }
+          
+          // Position label outside the polygon from the midpoint
+          const offset = 35;
+          const outwardAngle = Math.atan2(midPoint.y - cy, midPoint.x - cx);
+          const labelPos = {
+            x: midPoint.x + Math.cos(outwardAngle) * offset,
+            y: midPoint.y + Math.sin(outwardAngle) * offset,
+          };
+          
+          return (
+            <g key={`player-label-${pl.id}`}>
+              <text
+                x={labelPos.x}
+                y={labelPos.y}
+                fontSize={16}
+                fontWeight="600"
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fill={pl.color}
+                transform={`rotate(${textRotation} ${labelPos.x} ${labelPos.y})`}
+              >
+                {pl.isComputer ? '💻' : ''} {pl.name}
+              </text>
+            </g>
+          );
+        })}
+
         {/* Pegs on main track */}
         {Array.from(pegsOnSlot.entries()).map(([slot, items]) => {
           const slotPos = mainTrack.find(s => s.index === slot);
