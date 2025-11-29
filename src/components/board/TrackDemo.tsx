@@ -124,8 +124,6 @@ const Track: React.FC<{ size?: number }> = ({ size = 720 }) => {
                     r={slotR}
                     fill={pl.color}
                     opacity={0.15}
-                    className="cursor-pointer"
-                    onClick={() => selectPeg(pl.id, pl.pegs[posIdx]?.pegId)}
                   />
                   <circle
                     cx={pos.x}
@@ -135,8 +133,6 @@ const Track: React.FC<{ size?: number }> = ({ size = 720 }) => {
                     fillOpacity={0.6}
                     stroke={pl.color}
                     strokeWidth={1}
-                    className="cursor-pointer"
-                    onClick={() => selectPeg(pl.id, pl.pegs[posIdx]?.pegId)}
                   />
                 </g>
               ))}
@@ -190,22 +186,39 @@ const Track: React.FC<{ size?: number }> = ({ size = 720 }) => {
           if (!slotPos) return null;
           return (
             <g key={`slot-pegs-${slot}`}>
-              {items.map((it, idx) => (
-                <motion.circle
-                  key={`${slot}-${it.pegId}`}
-                  cx={slotPos.x}
-                  cy={slotPos.y}
-                  r={slotR * 0.8}
-                  fill={it.player.color}
-                  stroke="#0b1020"
-                  strokeWidth={2}
-                  initial={{ scale: 0.8, opacity: 0.6 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ type: "spring", stiffness: 220, damping: 20 }}
-                  className="cursor-pointer"
-                  onClick={() => selectPeg(it.player.id, it.pegId)}
-                />
-              ))}
+              {items.map((it, idx) => {
+                const isSelected = selectedPeg?.playerId === it.player.id && selectedPeg?.pegId === it.pegId;
+                return (
+                  <g key={`${slot}-${it.pegId}`}>
+                    {isSelected && (
+                      <motion.circle
+                        cx={slotPos.x}
+                        cy={slotPos.y}
+                        r={slotR * 1.3}
+                        fill="none"
+                        stroke="#ef4444"
+                        strokeWidth={3}
+                        initial={{ scale: 0.8 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: "spring", stiffness: 220, damping: 20 }}
+                      />
+                    )}
+                    <motion.circle
+                      cx={slotPos.x}
+                      cy={slotPos.y}
+                      r={slotR * 0.8}
+                      fill={it.player.color}
+                      stroke="#0b1020"
+                      strokeWidth={2}
+                      initial={{ scale: 0.8, opacity: 0.6 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ type: "spring", stiffness: 220, damping: 20 }}
+                      className="cursor-pointer"
+                      onClick={() => selectPeg(it.player.id, it.pegId)}
+                    />
+                  </g>
+                );
+              })}
             </g>
           );
         })}
@@ -217,21 +230,36 @@ const Track: React.FC<{ size?: number }> = ({ size = 720 }) => {
             <g key={`home-pegs-${playerIdx}`}>
               {items.map((it, idx) => {
                 const pos = homePositions[idx % homePositions.length];
+                const isSelected = selectedPeg?.playerId === it.player.id && selectedPeg?.pegId === it.pegId;
                 return (
-                  <motion.circle
-                    key={`home-${it.pegId}`}
-                    cx={pos.x}
-                    cy={pos.y}
-                    r={slotR * 0.111}
-                    fill={it.player.color}
-                    stroke={it.player.color}
-                    strokeWidth={2}
-                    initial={{ scale: 0.8 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: "spring", stiffness: 220, damping: 20 }}
-                    className="cursor-pointer"
-                    onClick={() => selectPeg(it.player.id, it.pegId)}
-                  />
+                  <g key={`home-${it.pegId}`}>
+                    {isSelected && (
+                      <motion.circle
+                        cx={pos.x}
+                        cy={pos.y}
+                        r={slotR * 0.6}
+                        fill="none"
+                        stroke="#ef4444"
+                        strokeWidth={3}
+                        initial={{ scale: 0.8 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: "spring", stiffness: 220, damping: 20 }}
+                      />
+                    )}
+                    <motion.circle
+                      cx={pos.x}
+                      cy={pos.y}
+                      r={slotR * 0.111}
+                      fill={it.player.color}
+                      stroke={it.player.color}
+                      strokeWidth={2}
+                      initial={{ scale: 0.8 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: "spring", stiffness: 220, damping: 20 }}
+                      className="cursor-pointer"
+                      onClick={() => selectPeg(it.player.id, it.pegId)}
+                    />
+                  </g>
                 );
               })}
             </g>
@@ -245,19 +273,36 @@ const Track: React.FC<{ size?: number }> = ({ size = 720 }) => {
             <g key={`safe-pegs-${playerIdx}`}>
               {items.map((it, idx) => {
                 const pos = safePositions[idx % safePositions.length];
+                const isSelected = selectedPeg?.playerId === it.player.id && selectedPeg?.pegId === it.pegId;
                 return (
-                  <motion.circle
-                    key={`safe-${it.pegId}`}
-                    cx={pos.x}
-                    cy={pos.y}
-                    r={slotR * 0.8}
-                    fill={it.player.color}
-                    stroke="#0b1020"
-                    strokeWidth={2}
-                    initial={{ scale: 0.8 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: "spring", stiffness: 220, damping: 20 }}
-                  />
+                  <g key={`safe-${it.pegId}`}>
+                    {isSelected && (
+                      <motion.circle
+                        cx={pos.x}
+                        cy={pos.y}
+                        r={slotR * 1.3}
+                        fill="none"
+                        stroke="#ef4444"
+                        strokeWidth={3}
+                        initial={{ scale: 0.8 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: "spring", stiffness: 220, damping: 20 }}
+                      />
+                    )}
+                    <motion.circle
+                      cx={pos.x}
+                      cy={pos.y}
+                      r={slotR * 0.8}
+                      fill={it.player.color}
+                      stroke="#0b1020"
+                      strokeWidth={2}
+                      initial={{ scale: 0.8 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: "spring", stiffness: 220, damping: 20 }}
+                      className="cursor-pointer"
+                      onClick={() => selectPeg(it.player.id, it.pegId)}
+                    />
+                  </g>
                 );
               })}
             </g>
