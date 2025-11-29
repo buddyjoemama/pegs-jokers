@@ -1,0 +1,54 @@
+// AuthDialog styles
+.dialogPaper {
+  background-color: rgb(17, 24, 39) !important;
+  color: white !important;
+}
+
+.title {
+  text-align: center;
+  font-weight: bold;
+}
+
+.tabs {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.alert {
+  margin-top: 16px;
+}
+
+.tabPanel {
+  padding-top: 24px;
+}
+
+.textField {
+  :global(.MuiInputBase-root) {
+    color: white;
+  }
+
+  :global(.MuiInputLabel-root) {
+    color: rgb(156, 163, 175);
+  }
+
+  :global(.MuiOutlinedInput-root) {
+    fieldset {
+      border-color: rgb(55, 65, 81);
+    }
+
+    &:hover fieldset {
+      border-color: rgb(107, 114, 128);
+    }
+
+    &.Mui-focused fieldset {
+      border-color: rgb(59, 130, 246);
+    }
+  }
+
+  :global(.MuiFormHelperText-root) {
+    color: rgb(107, 114, 128);
+  }
+}
+
+.submitButton {
+  margin-top: 24px !important;
+}

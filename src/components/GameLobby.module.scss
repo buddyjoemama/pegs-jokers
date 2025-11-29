@@ -1,0 +1,183 @@
+// GameLobby styles
+.gameContainer {
+  background-color: rgb(17, 24, 39);
+  min-height: 100vh;
+}
+
+.appBar {
+  background-color: rgb(31, 41, 55) !important;
+}
+
+.gameIdChip {
+  background-color: rgb(55, 65, 81) !important;
+  color: white !important;
+}
+
+.userChip {
+  background-color: rgb(55, 65, 81) !important;
+  color: white !important;
+}
+
+.avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: rgb(59, 130, 246);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+
+.gameBoard {
+  padding: 16px;
+}
+
+.lobbyContainer {
+  background-color: rgb(17, 24, 39);
+  min-height: 100vh;
+  padding-top: 32px;
+  padding-bottom: 32px;
+}
+
+.lobbyPaper {
+  padding: 32px;
+  background-color: rgb(31, 41, 55) !important;
+  color: white !important;
+  border-radius: 8px;
+}
+
+.title {
+  text-align: center;
+  font-weight: bold;
+  margin-bottom: 24px;
+}
+
+.userInfoCard {
+  margin-bottom: 24px;
+  background-color: rgb(55, 65, 81) !important;
+}
+
+.userSubtitle {
+  color: rgb(156, 163, 175);
+}
+
+.signInPromptCard {
+  margin-bottom: 24px;
+  background-color: rgb(55, 65, 81) !important;
+}
+
+.createButton {
+  margin-bottom: 16px !important;
+  padding-top: 12px !important;
+  padding-bottom: 12px !important;
+}
+
+.createButtonCaption {
+  display: block;
+  text-align: center;
+  color: rgb(107, 114, 128);
+  margin-bottom: 24px;
+}
+
+.divider {
+  margin-top: 24px !important;
+  margin-bottom: 24px !important;
+  background-color: rgb(75, 85, 99) !important;
+}
+
+.dividerText {
+  color: rgb(156, 163, 175);
+}
+
+.sectionTitle {
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.gameIdInput {
+  margin-bottom: 16px;
+
+  :global(.MuiInputBase-root) {
+    color: white;
+  }
+
+  :global(.MuiInputLabel-root) {
+    color: rgb(156, 163, 175);
+  }
+
+  :global(.MuiOutlinedInput-root) {
+    fieldset {
+      border-color: rgb(75, 85, 99);
+    }
+
+    &:hover fieldset {
+      border-color: rgb(107, 114, 128);
+    }
+
+    &.Mui-focused fieldset {
+      border-color: rgb(59, 130, 246);
+    }
+  }
+}
+
+.joinButton {
+  padding-top: 12px !important;
+  padding-bottom: 12px !important;
+}
+
+.joinButtonCaption {
+  display: block;
+  text-align: center;
+  color: rgb(107, 114, 128);
+  margin-top: 8px;
+}
+
+.connectionCard {
+  margin-top: 24px;
+  background-color: rgb(55, 65, 81) !important;
+}
+
+.connectionIndicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+
+  &.connected {
+    background-color: rgb(34, 197, 94);
+  }
+
+  &.connecting {
+    background-color: rgb(251, 191, 36);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  &.disconnected {
+    background-color: rgb(239, 68, 68);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.instructionsCard {
+  margin-top: 24px;
+  background-color: rgb(55, 65, 81) !important;
+}
+
+.instructionsTitle {
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.instructionsText {
+  color: rgb(209, 213, 219);
+  padding-left: 16px;
+}

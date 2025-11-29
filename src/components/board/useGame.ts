@@ -112,7 +112,7 @@ export const useGame = create<GameState>()(
         });
         
         // Sync to Firebase
-        if (state.gameId && gameRef && database) {
+        if (state.gameId && database) {
           try {
             const updatedState = get();
             await firebaseSet(ref(database, `games/${state.gameId}/players`), updatedState.players);
@@ -208,7 +208,7 @@ export const useGame = create<GameState>()(
           set((state) => {
             state.gameId = gameId;
             state.connectionStatus = 'connected';
-            state.isConnected = true;
+            state.isConnected = true;            
           });
           
           console.log(`🎮 Created new game: ${gameId}`);
