@@ -14,6 +14,8 @@ export type Player = {
   startIndex: number;
   homeEntryIndex: number;
   pegs: { pegId: string; pos: PegPos }[];
+  isComputer: boolean;
+  userId?: string; // Firebase auth UID for human players
 };
 
 export type Rules = {
@@ -43,10 +45,11 @@ export type GameState = {
   connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error';
   
   // Firebase methods
-  createGame: () => Promise<string | null>;
+  createGame: (playerCount: number) => Promise<string | null>;
   joinGame: (gameId: string) => Promise<void>;
   leaveGame: () => void;
   syncToFirebase: () => Promise<void>;
+  getUserGames: () => Promise<Array<{ id: string; createdAt: number; maxPlayers: number; status: string }>>;
 };
 
 export const useGame = create<GameState>()(
@@ -62,21 +65,33 @@ export const useGame = create<GameState>()(
     // LocalStorage key for game ID
     const GAME_ID_KEY = 'pegs-jokers-game-id';
 
-    const mkPlayer = (i: number, name: string, color: string): Player => {
+    const mkPlayer = (i: number, name: string, color: string, isComputer: boolean = false, userId?: string): Player => {
       const startIndex = i * slotsPerPlayer + 1; // 1-based: lane starts at 1, 19, 37, 55...
       const safeEntryIndex = startIndex + 3; // Safe starts at position 4 of lane (1-based)
       const pegs = Array.from({ length: 5 }, (_, p) => ({
         pegId: `${name[0]}${p + 1}`,
         pos: "HOME" as PegPos, // All pegs start in HOME
       }));
-      return { id: `P${i + 1}`, name, color, startIndex, homeEntryIndex: safeEntryIndex, pegs };
+      const player: Player = { 
+        id: `P${i + 1}`, 
+        name, 
+        color, 
+        startIndex, 
+        homeEntryIndex: safeEntryIndex, 
+        pegs, 
+        isComputer 
+      };
+      if (userId) {
+        player.userId = userId;
+      }
+      return player;
     };
 
     const getInitialPlayers = () => [
-      mkPlayer(0, "Red", "#ef4444"),
-      mkPlayer(1, "Blue", "#3b82f6"),
-      mkPlayer(2, "Green", "#10b981"),
-      mkPlayer(3, "Purple", "#a855f7"),
+      mkPlayer(0, "Red", "#ef4444", true),
+      mkPlayer(1, "Blue", "#3b82f6", true),
+      mkPlayer(2, "Green", "#10b981", true),
+      mkPlayer(3, "Purple", "#a855f7", true),
     ];
 
     return {
@@ -180,9 +195,14 @@ export const useGame = create<GameState>()(
       },
       
       // Firebase methods
-      createGame: async () => {
+      createGame: async (numPlayers: number = 4) => {
         if (!database) {
           console.error('Firebase database not initialized');
+          return null;
+        }
+        
+        if (numPlayers < 4 || numPlayers > 8) {
+          console.error('Invalid player count. Must be 4-8 players.');
           return null;
         }
         
@@ -196,15 +216,43 @@ export const useGame = create<GameState>()(
           const newGameRef = push(gamesRef);
           const gameId = newGameRef.key!;
           
+          // Create players array with first player as human (current user), rest as computer
+          const colors = [
+            { name: "Red", color: "#ef4444" },
+            { name: "Blue", color: "#3b82f6" },
+            { name: "Green", color: "#10b981" },
+            { name: "Purple", color: "#a855f7" },
+            { name: "Yellow", color: "#eab308" },
+            { name: "Orange", color: "#f97316" },
+            { name: "Pink", color: "#ec4899" },
+            { name: "Teal", color: "#14b8a6" },
+          ];
+          
+          const gamePlayers: Player[] = [];
+          for (let i = 0; i < numPlayers; i++) {
+            const isFirstPlayer = i === 0;
+            const playerColor = colors[i];
+            gamePlayers.push(
+              mkPlayer(
+                i,
+                playerColor.name,
+                playerColor.color,
+                !isFirstPlayer, // All players except first are computer
+                isFirstPlayer ? auth?.currentUser?.uid : undefined
+              )
+            );
+          }
+          
           const initialGameState = {
             rules: { slotsPerPlayer, exactHome: true },
-            totalSlots,
-            players: getInitialPlayers(),
+            totalSlots: numPlayers * slotsPerPlayer,
+            players: gamePlayers,
             currentTurn: 0,
             createdAt: serverTimestamp(),
             lastUpdated: serverTimestamp(),
             status: 'waiting', // waiting, playing, finished
             participants: auth?.currentUser ? { [auth.currentUser.uid]: true } : {},
+            maxPlayers: numPlayers,
           };
           
           await firebaseSet(newGameRef, initialGameState);
@@ -214,10 +262,26 @@ export const useGame = create<GameState>()(
             localStorage.setItem(GAME_ID_KEY, gameId);
           }
           
+          // Set up listener for the game we just created
+          gameRef = newGameRef;
+          gameListener = onValue(gameRef, (snapshot) => {
+            const gameData = snapshot.val();
+            if (gameData) {
+              console.log('🔄 Game state updated from Firebase');
+              set((state) => {
+                state.players = gameData.players || state.players;
+                state.rules = gameData.rules || state.rules;
+                state.totalSlots = gameData.totalSlots || state.totalSlots;
+              });
+            }
+          });
+          
           set((state) => {
             state.gameId = gameId;
             state.connectionStatus = 'connected';
-            state.isConnected = true;            
+            state.isConnected = true;
+            state.players = gamePlayers;
+            state.totalSlots = numPlayers * slotsPerPlayer;
           });
           
           console.log(`🎮 Created new game: ${gameId}`);
@@ -284,6 +348,27 @@ export const useGame = create<GameState>()(
           if (auth?.currentUser) {
             const participantsRef = ref(database, `games/${gameId}/participants/${auth.currentUser.uid}`);
             await firebaseSet(participantsRef, true);
+            
+            // Replace a computer player with the current user
+            const gameData = snapshot.val();
+            if (gameData?.players) {
+              const players = gameData.players;
+              const firstComputerIndex = players.findIndex((p: Player) => p.isComputer);
+              
+              if (firstComputerIndex !== -1) {
+                // Update the computer player to be a human player
+                const updatedPlayers = [...players];
+                updatedPlayers[firstComputerIndex] = {
+                  ...updatedPlayers[firstComputerIndex],
+                  isComputer: false,
+                  userId: auth.currentUser.uid,
+                  name: auth.currentUser.displayName || updatedPlayers[firstComputerIndex].name,
+                };
+                
+                await firebaseSet(ref(database, `games/${gameId}/players`), updatedPlayers);
+                console.log(`🎮 Replaced computer player at position ${firstComputerIndex + 1}`);
+              }
+            }
           }
           
           set((state) => {
@@ -351,6 +436,48 @@ export const useGame = create<GameState>()(
         } catch (error) {
           console.error('❌ Failed to sync to Firebase:', error);
           throw error;
+        }
+      },
+      
+      getUserGames: async () => {
+        if (!database || !auth?.currentUser) {
+          console.warn('⚠️ Cannot fetch games: not authenticated');
+          return [];
+        }
+        
+        const userId = auth.currentUser.uid;
+        
+        try {
+          const gamesRef = ref(database, 'games');
+          const snapshot = await firebaseGet(gamesRef);
+          
+          if (!snapshot.exists()) {
+            return [];
+          }
+          
+          const games = snapshot.val();
+          const userGames: Array<{ id: string; createdAt: number; maxPlayers: number; status: string }> = [];
+          
+          // Filter games where user is a participant
+          Object.keys(games).forEach((gameId) => {
+            const game = games[gameId];
+            if (game.participants && game.participants[userId]) {
+              userGames.push({
+                id: gameId,
+                createdAt: game.createdAt || 0,
+                maxPlayers: game.maxPlayers || 4,
+                status: game.status || 'unknown',
+              });
+            }
+          });
+          
+          // Sort by most recent first
+          userGames.sort((a, b) => b.createdAt - a.createdAt);
+          
+          return userGames;
+        } catch (error) {
+          console.error('❌ Failed to fetch user games:', error);
+          return [];
         }
       },
     };

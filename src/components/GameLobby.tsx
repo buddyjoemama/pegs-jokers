@@ -22,6 +22,19 @@ import {
   Stack,
   Card,
   CardContent,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
+  CircularProgress,
 } from '@mui/material';
 import LogoutIcon from '@mui/icons-material/Logout';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -36,11 +49,17 @@ const GameLobby: React.FC = () => {
     connectionStatus, 
     createGame, 
     joinGame, 
-    leaveGame 
+    leaveGame,
+    getUserGames 
   } = useGame();
   
   const [user, setUser] = useState<User | null>(null);
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
+  const [playerCountDialogOpen, setPlayerCountDialogOpen] = useState(false);
+  const [gamesListDialogOpen, setGamesListDialogOpen] = useState(false);
+  const [userGames, setUserGames] = useState<Array<{ id: string; createdAt: number; maxPlayers: number; status: string }>>([]);
+  const [loadingGames, setLoadingGames] = useState(false);
+  const [selectedPlayerCount, setSelectedPlayerCount] = useState<number>(4);
   const [inputGameId, setInputGameId] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
@@ -52,10 +71,23 @@ const GameLobby: React.FC = () => {
 
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
+      // Load user's games when they sign in
+      if (currentUser && !currentUser.isAnonymous) {
+        loadUserGames();
+      }
     });
 
     return () => unsubscribe();
   }, []);
+
+  const loadUserGames = async () => {
+    try {
+      const games = await getUserGames();
+      setUserGames(games);
+    } catch (error) {
+      console.error('Failed to load user games:', error);
+    }
+  };
 
   // Auto-rejoin game from localStorage on mount
   useEffect(() => {
@@ -88,6 +120,12 @@ const GameLobby: React.FC = () => {
   }, []); // Run only once on mount
 
   const handleCreateGame = async () => {
+    // Open dialog to select player count
+    setPlayerCountDialogOpen(true);
+  };
+
+  const handleConfirmCreateGame = async () => {
+    setPlayerCountDialogOpen(false);
     setIsCreating(true);
     try {
       // Sign in anonymously if not already authenticated
@@ -102,7 +140,7 @@ const GameLobby: React.FC = () => {
         await new Promise(resolve => setTimeout(resolve, 500));
       }
 
-      const newGameId = await createGame();
+      const newGameId = await createGame(selectedPlayerCount);
       if (!newGameId) {
         alert('Failed to create game. Firebase may not be initialized.');
         return;
@@ -183,67 +221,95 @@ const GameLobby: React.FC = () => {
     }
   };
 
-  // Show the game if connected
-  if (isConnected && gameId) {
-    return (
-      <Box className={styles.gameContainer}>
-        <AppBar position="static" className={styles.appBar}>
-          <Toolbar>
-            <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-              🎮 Pegs & Jokers
-            </Typography>
+  const handleOpenGamesList = async () => {
+    setLoadingGames(true);
+    setGamesListDialogOpen(true);
+    try {
+      const games = await getUserGames();
+      setUserGames(games);
+    } catch (error) {
+      console.error('Failed to load games:', error);
+    } finally {
+      setLoadingGames(false);
+    }
+  };
+
+  const handleJoinSelectedGame = async (selectedGameId: string) => {
+    setGamesListDialogOpen(false);
+    setIsJoining(true);
+    try {
+      await joinGame(selectedGameId);
+      console.log(`✅ Joined game: ${selectedGameId}`);
+      setErrorMessage(null);
+    } catch (error: any) {
+      console.error('Failed to join game:', error);
+      setErrorMessage(error.message || 'Failed to join game.');
+    } finally {
+      setIsJoining(false);
+    }
+  };
+
+  // Render game board view
+  const renderGameBoard = () => (
+    <Box className={styles.gameContainer}>
+      <AppBar position="static" className={styles.appBar}>
+        <Toolbar>
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+            🎮 Pegs & Jokers
+          </Typography>
+          
+          <Stack direction="row" spacing={2} alignItems="center">
+            <Chip
+              label={gameId}
+              onDelete={copyGameId}
+              deleteIcon={<ContentCopyIcon />}
+              className={styles.gameIdChip}
+            />
             
-            <Stack direction="row" spacing={2} alignItems="center">
+            <Chip
+              label={connectionStatus}
+              color={
+                connectionStatus === 'connected' ? 'success' : 
+                connectionStatus === 'connecting' ? 'warning' : 
+                'error'
+              }
+              size="small"
+            />
+            
+            {user && (
               <Chip
-                label={gameId}
-                onDelete={copyGameId}
-                deleteIcon={<ContentCopyIcon />}
-                className={styles.gameIdChip}
-              />
-              
-              <Chip
-                label={connectionStatus}
-                color={
-                  connectionStatus === 'connected' ? 'success' : 
-                  connectionStatus === 'connecting' ? 'warning' : 
-                  'error'
+                label={user.isAnonymous ? 'Guest' : (user.displayName || user.email)}
+                avatar={
+                  <Box className={styles.avatar}>
+                    {user.isAnonymous ? '?' : (user.displayName || user.email || 'U')[0].toUpperCase()}
+                  </Box>
                 }
-                size="small"
+                onClick={user.isAnonymous ? undefined : handleOpenGamesList}
+                className={styles.userChip}
+                sx={{ cursor: user.isAnonymous ? 'default' : 'pointer' }}
               />
-              
-              {user && (
-                <Chip
-                  label={user.isAnonymous ? 'Guest' : (user.displayName || user.email)}
-                  avatar={
-                    <Box className={styles.avatar}>
-                      {user.isAnonymous ? '?' : (user.displayName || user.email || 'U')[0].toUpperCase()}
-                    </Box>
-                  }
-                  className={styles.userChip}
-                />
-              )}
-              
-              <Button
-                variant="outlined"
-                color="error"
-                onClick={leaveGame}
-                size="small"
-              >
-                Leave Game
-              </Button>
-            </Stack>
-          </Toolbar>
-        </AppBar>
+            )}
+            
+            <Button
+              variant="outlined"
+              color="error"
+              onClick={leaveGame}
+              size="small"
+            >
+              Leave Game
+            </Button>
+          </Stack>
+        </Toolbar>
+      </AppBar>
 
-        <Box className={styles.gameBoard}>
-          <TrackDemo />
-        </Box>
+      <Box className={styles.gameBoard}>
+        <TrackDemo />
       </Box>
-    );
-  }
+    </Box>
+  );
 
-  // Show lobby if not connected
-  return (
+  // Render lobby view
+  const renderLobby = () => (
     <Box className={styles.lobbyContainer}>
       <Container maxWidth="sm">
         <Paper className={styles.lobbyPaper}>
@@ -306,6 +372,42 @@ const GameLobby: React.FC = () => {
           <Typography variant="caption" className={styles.createButtonCaption}>
             Create a game and share the ID with friends
           </Typography>
+
+          {/* User's existing games - only show for non-anonymous users */}
+          {user && !user.isAnonymous && userGames.length > 0 && (
+            <>
+              <Divider className={styles.divider}>
+                <Typography variant="body2" className={styles.dividerText}>
+                  YOUR GAMES
+                </Typography>
+              </Divider>
+
+              <Card sx={{ mb: 2 }}>
+                <CardContent>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Rejoin Your Games
+                  </Typography>
+                  <List dense>
+                    {userGames.slice(0, 5).map((game) => (
+                      <ListItem key={game.id} disablePadding>
+                        <ListItemButton onClick={() => handleJoinSelectedGame(game.id)}>
+                          <ListItemText
+                            primary={`Game ${game.id.substring(0, 10)}...`}
+                            secondary={`${game.maxPlayers} players • ${game.status}`}
+                          />
+                        </ListItemButton>
+                      </ListItem>
+                    ))}
+                  </List>
+                  {userGames.length > 5 && (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1, textAlign: 'center' }}>
+                      Showing 5 of {userGames.length} games
+                    </Typography>
+                  )}
+                </CardContent>
+              </Card>
+            </>
+          )}
 
           <Divider className={styles.divider}>
             <Typography variant="body2" className={styles.dividerText}>
@@ -399,7 +501,87 @@ const GameLobby: React.FC = () => {
           console.log('Authentication successful');
         }}
       />
+
+      {/* Player Count Selection Dialog */}
+      <Dialog
+        open={playerCountDialogOpen}
+        onClose={() => setPlayerCountDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Select Number of Players</DialogTitle>
+        <DialogContent>
+          <FormControl fullWidth sx={{ mt: 2, mb: 2 }}>
+            <InputLabel id="player-count-label">Number of Players</InputLabel>
+            <Select
+              labelId="player-count-label"
+              value={selectedPlayerCount}
+              label="Number of Players"
+              onChange={(e) => setSelectedPlayerCount(Number(e.target.value))}
+            >
+              <MenuItem value={4}>4 Players</MenuItem>
+              <MenuItem value={5}>5 Players</MenuItem>
+              <MenuItem value={6}>6 Players</MenuItem>
+              <MenuItem value={7}>7 Players</MenuItem>
+              <MenuItem value={8}>8 Players</MenuItem>
+            </Select>
+          </FormControl>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+            You will be Player 1. Other slots will be filled by computer players until real players join.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPlayerCountDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleConfirmCreateGame} variant="contained" disabled={isCreating}>
+            {isCreating ? 'Creating...' : 'Create Game'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
+  );
+
+  return (
+    <>
+      {isConnected && gameId ? renderGameBoard() : renderLobby()}
+      
+      {/* User Games List Dialog - Always rendered */}
+      <Dialog
+        open={gamesListDialogOpen}
+        onClose={() => setGamesListDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        sx={{ zIndex: 9999 }}
+      >
+        <DialogTitle>Your Games</DialogTitle>
+        <DialogContent>
+          {loadingGames ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : userGames.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
+              No games found. Create a new game to get started!
+            </Typography>
+          ) : (
+            <List>
+              {userGames.map((game) => (
+                <ListItem key={game.id} disablePadding>
+                  <ListItemButton onClick={() => handleJoinSelectedGame(game.id)}>
+                    <ListItemText
+                      primary={`Game ${game.id.substring(0, 8)}...`}
+                      secondary={`${game.maxPlayers} players • ${game.status} • ${new Date(game.createdAt).toLocaleDateString()}`}
+                    />
+                  </ListItemButton>
+                </ListItem>
+              ))}
+            </List>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setGamesListDialogOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 };
 

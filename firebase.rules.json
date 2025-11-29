@@ -1,8 +1,8 @@
 {
   "rules": {
     "games": {
+      ".read": "auth != null",
       "$gameId": {
-        ".read": true,
         ".write": "auth != null && (!data.exists() || root.child('games').child($gameId).child('participants').child(auth.uid).exists())"
       }
     },
