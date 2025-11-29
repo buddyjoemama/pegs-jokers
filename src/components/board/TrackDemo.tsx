@@ -366,47 +366,6 @@ const Track: React.FC<{ size?: number }> = ({ size = 720 }) => {
           </text>
         )}
       </svg>
-
-      <div className="mt-4 flex gap-4 justify-center">
-        <button
-          onClick={addPlayer}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
-        >
-          Add Player
-        </button>
-        <button
-          onClick={removePlayer}
-          className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium transition-colors"
-        >
-          Remove Player
-        </button>
-        <button
-          onClick={resetGame}
-          className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
-        >
-          Reset Game
-        </button>
-      </div>
-
-      <div className="mt-4 flex gap-8 flex-wrap justify-center">
-        {players.map((pl) => (
-          <div key={pl.id} className="px-3 py-2 rounded-2xl shadow bg-white/5 border border-white/10 text-slate-200">
-            <div className="font-semibold" style={{ color: pl.color }}>{pl.name}</div>
-            <div className="text-xs opacity-80">Start {pl.startIndex} · Home {pl.homeEntryIndex}</div>
-            <div className="mt-1 flex gap-2 flex-wrap">
-              {pl.pegs.map((pg) => (
-                <button
-                  key={pg.pegId}
-                  onClick={() => selectPeg(pl.id, pg.pegId)}
-                  className={`text-xs px-2 py-1 rounded-full border ${typeof pg.pos === "number" ? "border-slate-500 opacity-60" : "border-slate-300"}`}
-                >
-                  {pg.pegId}: {typeof pg.pos === "number" ? `@${pg.pos}` : pg.pos}
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
     </div> 
   );
 };
