@@ -5,7 +5,7 @@ import { useGame } from './board/useGame';
 import TrackDemo from './board/TrackDemo';
 import AuthDialog from './AuthDialog';
 import { auth } from '@/lib/firebase';
-import { onAuthStateChanged, signOut, User } from 'firebase/auth';
+import { onAuthStateChanged, signOut, signInAnonymously, User } from 'firebase/auth';
 import {
   Box,
   Container,
@@ -44,6 +44,7 @@ const GameLobby: React.FC = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
 
+  // Monitor auth state
   useEffect(() => {
     if (!auth) return;
 
@@ -54,14 +55,45 @@ const GameLobby: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
-  const handleCreateGame = async () => {
-    if (!user) {
-      setAuthDialogOpen(true);
-      return;
+  // Auto-rejoin game from localStorage on mount
+  useEffect(() => {
+    // Only run on client side
+    if (typeof window === 'undefined') return;
+    
+    // Don't auto-join if already connected
+    if (isConnected || gameId) return;
+    
+    const storedGameId = localStorage.getItem('pegs-jokers-game-id');
+    
+    if (storedGameId) {
+      console.log('🔄 Auto-rejoining game:', storedGameId);
+      setIsJoining(true);
+      joinGame(storedGameId)
+        .then(() => {
+          console.log('✅ Auto-rejoin successful');
+        })
+        .catch((error) => {
+          console.error('❌ Auto-rejoin failed:', error);
+          // Clear invalid game ID from localStorage
+          localStorage.removeItem('pegs-jokers-game-id');
+        })
+        .finally(() => {
+          setIsJoining(false);
+        });
     }
+  }, []); // Run only once on mount
 
+  const handleCreateGame = async () => {
     setIsCreating(true);
     try {
+      // Sign in anonymously if not already authenticated
+      if (!user) {
+        console.log('🔐 Creating anonymous user...');
+        await signInAnonymously(auth);
+        // Wait a moment for auth state to update
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
       const newGameId = await createGame();
       if (!newGameId) {
         alert('Failed to create game. Firebase may not be initialized.');
@@ -78,11 +110,6 @@ const GameLobby: React.FC = () => {
   };
 
   const handleJoinGame = async () => {
-    if (!user) {
-      setAuthDialogOpen(true);
-      return;
-    }
-
     if (!inputGameId.trim()) {
       alert('Please enter a Game ID');
       return;
@@ -90,6 +117,14 @@ const GameLobby: React.FC = () => {
 
     setIsJoining(true);
     try {
+      // Sign in anonymously if not already authenticated
+      if (!user) {
+        console.log('🔐 Creating anonymous user...');
+        await signInAnonymously(auth);
+        // Wait a moment for auth state to update
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
       await joinGame(inputGameId.trim());
       console.log(`✅ Joined game: ${inputGameId}`);
     } catch (error) {
@@ -214,11 +249,11 @@ const GameLobby: React.FC = () => {
             <Card className={styles.signInPromptCard}>
               <CardContent>
                 <Typography variant="body1" align="center" gutterBottom>
-                  Sign in to create or join games
+                  Sign in to save your progress (optional)
                 </Typography>
                 <Button
                   fullWidth
-                  variant="contained"
+                  variant="outlined"
                   startIcon={<LoginIcon />}
                   onClick={() => setAuthDialogOpen(true)}
                   sx={{ mt: 1 }}

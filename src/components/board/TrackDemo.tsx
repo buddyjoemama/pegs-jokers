@@ -311,17 +311,13 @@ const Track: React.FC<{ size?: number }> = ({ size = 720 }) => {
           </div>
         ))}
       </div>
-    </div>
+    </div> 
   );
 };
 
 export default function TrackDemo() {
   return (
     <div className="w-screen h-screen bg-slate-900 text-slate-100">
-      <div className="p-4 text-center">
-        <h1 className="text-2xl font-bold">Pegs & Jokers – SVG Track Demo</h1>
-        <p className="opacity-80 text-sm">Click a peg in a BASE panel, then click a slot to move it (toy interaction)</p>
-      </div>
       <Track />
     </div>
   );

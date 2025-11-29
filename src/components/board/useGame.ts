@@ -59,6 +59,9 @@ export const useGame = create<GameState>()(
     let gameRef: DatabaseReference | null = null;
     let gameListener: (() => void) | null = null;
 
+    // LocalStorage key for game ID
+    const GAME_ID_KEY = 'pegs-jokers-game-id';
+
     const mkPlayer = (i: number, name: string, color: string): Player => {
       const startIndex = i * slotsPerPlayer + 1; // 1-based: lane starts at 1, 19, 37, 55...
       const safeEntryIndex = startIndex + 3; // Safe starts at position 4 of lane (1-based)
@@ -205,6 +208,11 @@ export const useGame = create<GameState>()(
           
           await firebaseSet(newGameRef, initialGameState);
           
+          // Store game ID in localStorage
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(GAME_ID_KEY, gameId);
+          }
+          
           set((state) => {
             state.gameId = gameId;
             state.connectionStatus = 'connected';
@@ -256,6 +264,11 @@ export const useGame = create<GameState>()(
             });
           });
           
+          // Store game ID in localStorage
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(GAME_ID_KEY, gameId);
+          }
+          
           set((state) => {
             state.gameId = gameId;
             state.connectionStatus = 'connected';
@@ -282,6 +295,11 @@ export const useGame = create<GameState>()(
         
         // Clean up references
         gameRef = null;
+        
+        // Clear localStorage
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem(GAME_ID_KEY);
+        }
         
         // Reset state
         set((state) => {
