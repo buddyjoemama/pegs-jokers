@@ -88,6 +88,10 @@ const GameLobby: React.FC = () => {
     try {
       // Sign in anonymously if not already authenticated
       if (!user) {
+        if (!auth) {
+          alert('Authentication not initialized');
+          return;
+        }
         console.log('🔐 Creating anonymous user...');
         await signInAnonymously(auth);
         // Wait a moment for auth state to update
@@ -119,6 +123,10 @@ const GameLobby: React.FC = () => {
     try {
       // Sign in anonymously if not already authenticated
       if (!user) {
+        if (!auth) {
+          alert('Authentication not initialized');
+          return;
+        }
         console.log('🔐 Creating anonymous user...');
         await signInAnonymously(auth);
         // Wait a moment for auth state to update
